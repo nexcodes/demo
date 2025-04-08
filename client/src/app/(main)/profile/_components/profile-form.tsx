@@ -163,6 +163,13 @@ export function ProfileForm({
 
       const newPreviews = files.map((file) => URL.createObjectURL(file));
       setSelectedPreviews((prev) => [...prev, ...newPreviews].slice(0, 6));
+
+      const photos = form.watch("photos");
+
+      if (!photos) {
+        form.setValue("photos", Array(newFiles.length).fill(0));
+        form.trigger("photos");
+      }
     }
   };
 
