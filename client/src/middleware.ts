@@ -7,105 +7,114 @@ import {
 } from "./constants/routes";
 import { createMiddlewareSupabaseClient } from "./lib/supabase/middleware";
 
-export async function middleware(req: NextRequest) {
-  // Create a response object
-  const res = NextResponse.next();
+// Helper function with timeout
+const fetchWithTimeout = async (
+  url: string,
+  options: RequestInit,
+  timeout = 3000
+) => {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeout);
 
+  const response = await fetch(url, {
+    ...options,
+    signal: controller.signal,
+  });
+
+  clearTimeout(id);
+  return response;
+};
+
+export async function middleware(req: NextRequest) {
+  const res = NextResponse.next();
   const {
     nextUrl: { pathname },
   } = req;
 
-  // Updated to createMiddlewareClient instead of createMiddlewareSupabaseClient
-  const supabase = createMiddlewareSupabaseClient(req, res);
+  // Early returns for static files and public routes
+  if (
+    pathname.startsWith("/_next") ||
+    pathname.startsWith("/static") ||
+    pathname.startsWith("/favicon.ico")
+  ) {
+    return res;
+  }
 
-  // Check if we have a session
+  const supabase = createMiddlewareSupabaseClient(req, res);
   const {
     data: { session },
   } = await supabase.auth.getSession();
-
   const isLoggedIn = !!session;
 
   const isAuthRoute = authRoutes.includes(pathname);
   const isPublicRoute = publicRoutes.includes(pathname);
-
   const isApiRoute =
     pathname.startsWith("/api") || pathname.startsWith("/trpc");
 
-  // Early returns for public and API routes
+  // Handle public and API routes
   if (isPublicRoute || isApiRoute) return res;
 
   // Handle unauthenticated users
   if (!isLoggedIn) {
-    if (isAuthRoute) {
-      return res;
-    }
+    if (isAuthRoute) return res;
     return NextResponse.redirect(new URL(SIGN_IN_REDIRECT, req.url));
   }
 
-  // Avoid redirects on these pages to prevent loops
+  // Skip verification for these routes to prevent loops
   if (pathname === "/verify" || pathname === "/profile/create") {
     return res;
   }
 
   try {
-    // Fetch phone data using REST API
-    const phoneResponse = await fetch(
-      `${process.env.NEXT_PUBLIC_STRAPI_URL}/api/phones?filters[userId][$eq]=${session.user.id}`,
-      {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${process.env.NEXT_PUBLIC_STRAPI_API_TOKEN}`,
-          "Content-Type": "application/json",
-        },
-      }
-    );
+    // Fetch both phone and profile data in parallel with timeout
+    const [phoneResponse, profileResponse] = await Promise.all([
+      fetchWithTimeout(
+        `${process.env.NEXT_PUBLIC_STRAPI_URL}/api/phones?filters[userId][$eq]=${session.user.id}`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${process.env.NEXT_PUBLIC_STRAPI_API_TOKEN}`,
+            "Content-Type": "application/json",
+          },
+        }
+      ),
+      fetchWithTimeout(
+        `${process.env.NEXT_PUBLIC_STRAPI_URL}/api/profiles?filters[userId][$eq]=${session.user.id}`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${process.env.NEXT_PUBLIC_STRAPI_API_TOKEN}`,
+            "Content-Type": "application/json",
+          },
+        }
+      ),
+    ]);
 
-    const phoneData = await phoneResponse.json();
+    const [phoneData, profileData] = await Promise.all([
+      phoneResponse.json(),
+      profileResponse.json(),
+    ]);
 
-    // Check if phone data exists, if not redirect to verify
-    if (!phoneData || !phoneData.data || phoneData.data.length === 0) {
-      console.log({ session, phoneData });
-
-      if (pathname !== "/verify") {
-        return NextResponse.redirect(new URL("/verify", req.url));
-      }
-      return res;
+    // Check phone verification
+    if (!phoneData?.data?.length && pathname !== "/verify") {
+      return NextResponse.redirect(new URL("/verify", req.url));
     }
 
-    // Fetch profile data using REST API
-    const profileResponse = await fetch(
-      `${process.env.NEXT_PUBLIC_STRAPI_URL}/api/profiles?filters[userId][$eq]=${session.user.id}`,
-      {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${process.env.NEXT_PUBLIC_STRAPI_API_TOKEN}`,
-          "Content-Type": "application/json",
-        },
-      }
-    );
-
-    const profileData = await profileResponse.json();
-
-    // Check if profile exists, if not redirect to create profile
-    if (!profileData || !profileData.data || profileData.data.length === 0) {
-      // Don't redirect if already at /profile/create to prevent loops
+    // Check profile creation
+    if (!profileData?.data?.length) {
       if (pathname !== "/profile/create") {
         return NextResponse.redirect(new URL("/profile/create", req.url));
       }
       return res;
     }
 
-    // If at profile creation but profile already exists, redirect to default
-    if (
-      pathname === "/profile/create" &&
-      profileData.data &&
-      profileData.data.length > 0
-    ) {
+    // Redirect if trying to create profile but already has one
+    if (pathname === "/profile/create" && profileData?.data?.length) {
       return NextResponse.redirect(new URL(DEFAULT_REDIRECT, req.url));
     }
   } catch (error) {
     console.error("Middleware error:", error);
-    // Return the original response on error instead of possibly redirecting
+    // On error, allow the request to proceed but log the error
     return res;
   }
 
@@ -113,5 +122,5 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!.+\\.[\\w]+$|_next).*)", "/", "/(api|trpc)(.*)"],
+  matcher: ["/((?!api|_next/static|_next/image|favicon.ico|auth|public).*)"],
 };
