@@ -1,0 +1,12 @@
+{
+    "collectionName": "components_arrays_array_of_strings",
+    "info": {
+        "displayName": "ArrayOfString"
+    },
+    "options": {},
+    "attributes": {
+        "item": {
+            "type": "string"
+        }
+    }
+}
