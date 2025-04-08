@@ -6,6 +6,9 @@ const nextConfig = {
         hostname: "localhost",
         port: "1337",
       },
+      {
+        hostname: "demo-1xag.onrender.com",
+      },
     ],
   },
 };

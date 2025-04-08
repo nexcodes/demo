@@ -166,7 +166,7 @@ export function ProfileForm({
 
       const photos = form.watch("photos");
 
-      if (!photos) {
+      if (!photos.length) {
         form.setValue("photos", Array(newFiles.length).fill(0));
         form.trigger("photos");
       }
@@ -183,8 +183,13 @@ export function ProfileForm({
 
     const photos = initialData?.photos?.filter((_, i) => i !== index) || [];
 
-    form.setValue("photos", photos);
-    form.trigger("photos");
+    if (!photos.length) {
+      form.setValue("photos", Array(updatedFiles.length).fill(0));
+      form.trigger("photos");
+    } else {
+      form.setValue("photos", photos);
+      form.trigger("photos");
+    }
   };
 
   const toggleInterest = (interest: string) => {
