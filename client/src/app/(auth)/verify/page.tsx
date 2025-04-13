@@ -232,13 +232,6 @@ export default function VerifyPage() {
       {step === "otp" && (
         <>
           <div className="text-center mb-8">
-            <div className="flex justify-center mb-4">
-              <div className="w-16 h-16 rounded-full bg-white/10 flex items-center justify-center">
-                <div className="text-2xl font-bold text-white">
-                  {Array(6).fill("•").join("")}
-                </div>
-              </div>
-            </div>
             <h1 className="text-2xl font-bold text-white mb-2">
               Verification Code
             </h1>

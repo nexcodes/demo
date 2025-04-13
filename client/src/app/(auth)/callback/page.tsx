@@ -2,14 +2,24 @@
 
 import { DEFAULT_REDIRECT, SIGN_IN_REDIRECT } from "@/constants/routes";
 import { supabase } from "@/lib/supabase/client";
-import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
 
-export default function AuthCallback() {
+// Create a separate component to handle search params
+function CallbackHandler() {
   const router = useRouter();
   const [progress, setProgress] = useState(0);
 
+  // Import useSearchParams inside this component
+  const params = useSearchParams();
+  const code = params.get("code");
+
   useEffect(() => {
+    if (!code) {
+      router.push(DEFAULT_REDIRECT);
+      return;
+    }
+
     const handleAuthCallback = async () => {
       try {
         // Let Supabase automatically handle the code exchange
@@ -31,7 +41,7 @@ export default function AuthCallback() {
     };
 
     handleAuthCallback();
-  }, [router]);
+  }, [code, router]);
 
   // Progress bar animation
   useEffect(() => {
@@ -83,5 +93,24 @@ export default function AuthCallback() {
       <div className="absolute -top-4 -right-4 w-20 h-20 bg-gradient-to-br from-purple-500/30 to-blue-500/30 rounded-full blur-xl"></div>
       <div className="absolute -bottom-6 -left-6 w-24 h-24 bg-gradient-to-tr from-blue-500/20 to-purple-500/20 rounded-full blur-xl"></div>
     </div>
+  );
+}
+
+// Main component with Suspense boundary
+export default function AuthCallback() {
+  return (
+    <Suspense
+      fallback={
+        <div className="relative w-full max-w-md">
+          <div className="text-center p-10 bg-black/40 backdrop-blur-xl rounded-3xl shadow-[0_8px_32px_rgba(0,0,0,0.2)] border border-white/10">
+            <h2 className="text-xl font-semibold mb-3 text-white tracking-wide">
+              Loading...
+            </h2>
+          </div>
+        </div>
+      }
+    >
+      <CallbackHandler />
+    </Suspense>
   );
 }

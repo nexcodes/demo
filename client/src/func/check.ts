@@ -5,6 +5,7 @@ import { useCurrentUser } from "@/hooks/use-current-user";
 import { usePathname } from "next/navigation";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
+import { retryPromise } from "./retry";
 
 export const useCheck = () => {
   const pathname = usePathname();
@@ -16,16 +17,23 @@ export const useCheck = () => {
   useEffect(() => {
     (async () => {
       try {
-        // Fetch phone data using REST API
-        const phoneResponse = await fetch(
-          `${process.env.NEXT_PUBLIC_STRAPI_URL}/api/phones?filters[userId][$eq]=${user?.id}`,
-          {
-            method: "GET",
-            headers: {
-              Authorization: `Bearer ${process.env.NEXT_PUBLIC_STRAPI_API_TOKEN}`,
-              "Content-Type": "application/json",
-            },
-          }
+        // Use retryPromise for the phone data fetch
+        const phoneResponse = await retryPromise(
+          () =>
+            fetch(
+              `${process.env.NEXT_PUBLIC_STRAPI_URL}/api/phones?filters[userId][$eq]=${user?.id}`,
+              {
+                method: "GET",
+                headers: {
+                  Authorization: `Bearer ${process.env.NEXT_PUBLIC_STRAPI_API_TOKEN}`,
+                  "Content-Type": "application/json",
+                },
+              }
+            ),
+          3,
+          50,
+          // Custom shouldRetry function for Response objects
+          (response) => !response.ok || response.status === 204
         );
 
         const phoneData = await phoneResponse.json();
@@ -38,16 +46,23 @@ export const useCheck = () => {
           return null;
         }
 
-        // Fetch profile data using REST API
-        const profileResponse = await fetch(
-          `${process.env.NEXT_PUBLIC_STRAPI_URL}/api/profiles?filters[userId][$eq]=${user?.id}`,
-          {
-            method: "GET",
-            headers: {
-              Authorization: `Bearer ${process.env.NEXT_PUBLIC_STRAPI_API_TOKEN}`,
-              "Content-Type": "application/json",
-            },
-          }
+        // Use retryPromise for the profile data fetch as well
+        const profileResponse = await retryPromise(
+          () =>
+            fetch(
+              `${process.env.NEXT_PUBLIC_STRAPI_URL}/api/profiles?filters[userId][$eq]=${user?.id}`,
+              {
+                method: "GET",
+                headers: {
+                  Authorization: `Bearer ${process.env.NEXT_PUBLIC_STRAPI_API_TOKEN}`,
+                  "Content-Type": "application/json",
+                },
+              }
+            ),
+          3,
+          50,
+          // Custom shouldRetry function for Response objects
+          (response) => !response.ok || response.status === 204
         );
 
         const profileData = await profileResponse.json();
@@ -78,5 +93,5 @@ export const useCheck = () => {
         return null;
       }
     })();
-  }, [pathname, router, user]);
+  }, [user, pathname, router]);
 };
