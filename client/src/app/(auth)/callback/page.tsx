@@ -28,7 +28,6 @@ function CallbackHandler() {
         if (error) throw error;
 
         if (data?.session) {
-          console.log("Authenticated ✅", data.session);
           router.push(DEFAULT_REDIRECT);
         } else {
           console.warn("No session found ❌");

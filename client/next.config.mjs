@@ -7,7 +7,7 @@ const nextConfig = {
         port: "1337",
       },
       {
-        hostname: "demo-1xag.onrender.com",
+        hostname: "cdn.sanity.io",
       },
     ],
   },

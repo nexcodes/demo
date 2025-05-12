@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { useCurrentUser } from "@/hooks/use-current-user";
-import { strapiClient } from "@/lib/strapi";
+import { client } from "@/lib/sanity";
 import { supabase } from "@/lib/supabase/client";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { ArrowLeft, CheckCircle2, Loader2 } from "lucide-react";
@@ -114,12 +114,24 @@ export default function VerifyPage() {
         phoneNumber,
         values.otp
       );
-
       if (!success) throw new Error(message);
 
-      const result = strapiClient.collection("phones");
+      // Create user phone number in Sanity
+      if (user?.id) {
+        try {
+          // Create a new phone record in Sanity
+          await client.create({
+            _type: "user",
+            userId: user.id,
+            phone_number: phoneNumber,
+          });
 
-      result.create({ userId: user?.id, phone_number: phoneNumber });
+          console.log("Phone record created in Sanity");
+        } catch (sanityError) {
+          console.error("Error creating Sanity record:", sanityError);
+          // Continue with the flow even if Sanity creation fails
+        }
+      }
 
       setStep("success");
     } catch (error) {

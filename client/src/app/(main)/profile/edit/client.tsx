@@ -4,87 +4,98 @@
 
 import { Profile } from "@/data/get-user-profile";
 import { useCurrentUser } from "@/hooks/use-current-user";
+import { client } from "@/lib/sanity";
 import { profileSchema } from "@/schemas";
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { z } from "zod";
 import { ProfileForm } from "../_components/profile-form";
+import { nanoid } from "nanoid";
 
-export default function ClientEditProfilePage({
-  profile,
-}: {
-  profile: Profile;
-}) {
+export default function ClientEditProfilePage({ profile }: { profile: any }) {
   const router = useRouter();
 
   const { user } = useCurrentUser();
 
   const [isPending, startTransition] = useTransition();
-
-  const handleSubmit = async (
-    data: z.infer<typeof profileSchema>,
-    files: File[]
-  ) => {
+  const handleSubmit = async (data: any, files: File[]) => {
     startTransition(async () => {
       if (!user?.id) {
         console.error("User ID is required");
         return;
       }
       try {
-        const uploadedIds = await uploadToStrapi(files);
+        // Upload new files and get media references
+        const uploadedImageReferences = await uploadToSanity(files);
 
-        data.photos = [...data.photos, ...uploadedIds];
+        // Extract fields that shouldn't be sent to Sanity
+        const { id, documentId, photosUrl, ...dataToUpdate } = data;
 
-        const { id, documentId, photosUrl, ...dataToSend } = data as any;
+        console.log(profile);
 
-        // Update the profile in Strapi using REST API
-        const response = await fetch(
-          `${process.env.NEXT_PUBLIC_STRAPI_URL}/api/profiles/${profile.documentId}`,
-          {
-            method: "PUT",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${process.env.NEXT_PUBLIC_STRAPI_API_TOKEN}`,
-            },
-            body: JSON.stringify({ data: dataToSend }),
-          }
-        );
+        // Combine existing photos with newly uploaded ones
+        const existingPhotos =
+          profile.photos
+            ?.filter((photo: any) => photosUrl.includes(photo.url))
+            ?.map((photo: any) => ({
+              _type: "image",
+              _key: nanoid(),
+              asset: {
+                _type: "reference",
+                _ref: photo.asset._ref,
+              },
+            })) || [];
 
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(
-            `Strapi API error: ${errorData.error?.message || "Unknown error"}`
-          );
-        }
+        // Update the profile in Sanity
+        await client
+          .patch(profile._id)
+          .set({
+            ...dataToUpdate,
+            photos: [...existingPhotos, ...uploadedImageReferences],
+            userId: user.id,
+          })
+          .commit();
 
         // Redirect after successful update
         router.push("/");
       } catch (err) {
-        // Handle unexpected errors (network, Strapi errors)
-        console.error("Error submitting profile:", err);
+        // Handle errors
+        console.error("Error updating profile:", err);
       }
     });
   };
+  const uploadToSanity = async (files: File[]) => {
+    const uploadPromises = files.map(async (file) => {
+      // Create a unique file name
+      const fileExtension = file.name.split(".").pop();
+      const fileName = `${nanoid()}.${fileExtension}`;
 
-  async function uploadToStrapi(files: File[]): Promise<number[]> {
-    const formData = new FormData();
-    files.forEach((file) => formData.append("files", file));
+      // Convert file to array buffer
+      const fileBuffer = await file.arrayBuffer();
 
-    const response = await fetch(
-      `${process.env.NEXT_PUBLIC_STRAPI_URL}/api/upload`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${process.env.NEXT_PUBLIC_STRAPI_API_TOKEN}`,
+      // Upload to Sanity
+      const document = await client.assets.upload(
+        "image",
+        new Blob([fileBuffer]),
+        {
+          filename: fileName,
+        }
+      );
+
+      // Return the reference with _key added
+      return {
+        _type: "image",
+        _key: nanoid(), // Add unique _key for array items
+        asset: {
+          _type: "reference",
+          _ref: document._id,
         },
-        body: formData,
-      }
-    );
+      };
+    });
 
-    if (!response.ok) throw new Error("Upload failed");
-    const data = await response.json();
-    return data.map((file: { id: number }) => file.id);
-  }
+    // Wait for all uploads to complete
+    return Promise.all(uploadPromises);
+  };
 
   return (
     <div className="container mx-auto py-10">
@@ -92,8 +103,8 @@ export default function ClientEditProfilePage({
         initialData={{
           ...profile,
           birthday: new Date(profile.birthday),
-          photosUrl: profile.photos?.map((photo) => photo.url),
-          photos: profile.photos?.map((photo) => photo.id),
+          photosUrl: profile.photos?.map((photo: any) => photo.url),
+          photos: profile.photos?.map((photo: any) => 0),
         }}
         onSubmit={handleSubmit}
         isLoading={isPending}

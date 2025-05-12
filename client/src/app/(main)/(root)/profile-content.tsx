@@ -202,6 +202,9 @@ function PhotoCarousel({ photos }: { photos: { url: string }[] }) {
 }
 
 export default function ProfileContent({ profile }: any) {
+
+  console.log(profile)
+
   return (
     <div className="min-h-screen bg-white">
       {/* Hero section with photo carousel */}

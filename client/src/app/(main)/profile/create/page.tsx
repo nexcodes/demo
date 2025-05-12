@@ -1,12 +1,13 @@
 "use client";
 
 import { useCurrentUser } from "@/hooks/use-current-user";
-import { strapiClient } from "@/lib/strapi";
+import { client } from "@/lib/sanity";
 import { profileSchema } from "@/schemas";
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { z } from "zod";
 import { ProfileForm } from "../_components/profile-form";
+import { nanoid } from "nanoid";
 
 export default function CreateProfilePage() {
   const router = useRouter();
@@ -14,6 +15,39 @@ export default function CreateProfilePage() {
   const { user } = useCurrentUser();
 
   const [isPending, startTransition] = useTransition();
+
+  const uploadToSanity = async (files: File[]) => {
+    const uploadPromises = files.map(async (file) => {
+      // Create a unique file name
+      const fileExtension = file.name.split(".").pop();
+      const fileName = `${nanoid()}.${fileExtension}`;
+
+      // Convert file to array buffer
+      const fileBuffer = await file.arrayBuffer();
+
+      // Upload to Sanity
+      const document = await client.assets.upload(
+        "image",
+        new Blob([fileBuffer]),
+        {
+          filename: fileName,
+        }
+      );
+
+      // Return the reference with _key added
+      return {
+        _type: "image",
+        _key: nanoid(), // Add unique _key for array items
+        asset: {
+          _type: "reference",
+          _ref: document._id,
+        },
+      };
+    });
+
+    // Wait for all uploads to complete
+    return Promise.all(uploadPromises);
+  };
 
   const handleSubmit = async (
     data: z.infer<typeof profileSchema>,
@@ -23,13 +57,14 @@ export default function CreateProfilePage() {
       if (!user?.id) return;
 
       try {
-        // Upload files and get media IDs
-        const uploadedIds = await uploadToStrapi(files);
+        // Upload files and get media references
+        const uploadedImageReferences = await uploadToSanity(files);
 
-        // Create profile with media IDs
-        await strapiClient.collection("profiles").create({
+        // Create profile with media references
+        await client.create({
+          _type: "profile",
           ...data,
-          photos: uploadedIds,
+          photos: uploadedImageReferences,
           userId: user.id,
         });
 
@@ -39,27 +74,6 @@ export default function CreateProfilePage() {
       }
     });
   };
-
-  // Strapi file upload helper
-  async function uploadToStrapi(files: File[]): Promise<number[]> {
-    const formData = new FormData();
-    files.forEach((file) => formData.append("files", file));
-
-    const response = await fetch(
-      `${process.env.NEXT_PUBLIC_STRAPI_URL}/api/upload`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${process.env.NEXT_PUBLIC_STRAPI_API_TOKEN}`,
-        },
-        body: formData,
-      }
-    );
-
-    if (!response.ok) throw new Error("Upload failed");
-    const data = await response.json();
-    return data.map((file: { id: number }) => file.id);
-  }
 
   return (
     <div className="container mx-auto py-10">
