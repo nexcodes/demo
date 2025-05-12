@@ -1,8 +1,8 @@
 import { createServerSupabaseClient } from "./supabase/server";
 
-const supabase = createServerSupabaseClient();
-
 export const currentUser = async () => {
+  const supabase = createServerSupabaseClient();
+
   try {
     const { data } = await supabase.auth.getUser();
 
@@ -11,12 +11,4 @@ export const currentUser = async () => {
     console.error("Error getting user:", error);
     return null;
   }
-};
-
-export const currentSession = async () => {
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-
-  return session;
 };
