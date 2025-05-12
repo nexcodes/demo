@@ -12,3 +12,11 @@ export const currentUser = async () => {
     return null;
   }
 };
+
+export const currentSession = async () => {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  return session;
+};

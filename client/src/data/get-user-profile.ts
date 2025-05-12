@@ -1,4 +1,4 @@
-import { currentUser } from "@/lib/auth";
+import { currentSession } from "@/lib/auth";
 import { client, urlFor } from "@/lib/sanity";
 import { profileSchema } from "@/schemas";
 import { z } from "zod";
@@ -27,9 +27,9 @@ export type Profile = Omit<z.infer<typeof schema>, "_id"> & {
 
 export const getUserProfile = async (): Promise<Profile | null> => {
   try {
-    const user = await currentUser();
+    const session = await currentSession();
 
-    if (!user) {
+    if (!session) {
       return null;
     }
 
@@ -56,7 +56,7 @@ export const getUserProfile = async (): Promise<Profile | null> => {
       userId
     }`;
 
-    const profile = await client.fetch(query, { userId: user.id });
+    const profile = await client.fetch(query, { userId: session.user.id });
 
     if (profile) {
       const { photos, ...rest } = profile;
