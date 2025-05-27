@@ -186,7 +186,18 @@ export const datingProfileFormSchema = datingProfileSchema
     gallery: true,
   })
   .extend({
-    gallery: z.array(z.instanceof(File)).min(1).max(6),
+    gallery: z.array(z.instanceof(File)).min(0).max(6),
+    imagesToDelete: z.array(z.string()).optional(),
+    existingImages: z.array(
+      z.object({
+        url: z.string(),
+        _key: z.string(),
+        asset: z.object({
+          _ref: z.string(),
+          _type: z.literal("reference"),
+        }),
+      })
+    ).optional(),
   });
 export type DatingProfileForm = z.infer<typeof datingProfileFormSchema>;
 

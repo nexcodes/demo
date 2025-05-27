@@ -14,48 +14,63 @@ export default function ClientEditProfilePage({ profile }: { profile: any }) {
 
   const { user } = useCurrentUser();
 
-  const [isPending, startTransition] = useTransition();
-  const handleSubmit = async (data: any) => {
+  const [isPending, startTransition] = useTransition();  const handleSubmit = async (data: any) => {
     startTransition(async () => {
       if (!user?.id) {
         console.error("User ID is required");
         return;
       }
       try {
-        // Extract files from gallery
+        // Extract files from gallery and other data
         const files = data.gallery || [];
+        const imagesToDelete = data.imagesToDelete || [];
+        const existingImages = data.existingImages || [];
+        
+        // Delete images from Sanity if any
+        if (imagesToDelete.length > 0) {
+          await Promise.all(
+            imagesToDelete.map(async (assetRef: string) => {
+              try {
+                await client.delete(assetRef);
+              } catch (error) {
+                console.warn(`Failed to delete asset ${assetRef}:`, error);
+              }
+            })
+          );
+        }
+        
         // Upload new files and get media references
         const uploadedImageReferences =
           files.length > 0 ? await uploadToSanity(files) : [];
 
         // Extract fields that shouldn't be sent to Sanity
-        const { id, documentId, photosUrl, gallery, ...dataToUpdate } = data;
+        const { id, documentId, gallery, imagesToDelete: _, existingImages: __, ...dataToUpdate } = data;
 
         // Combine existing photos with newly uploaded ones
-        const existingPhotos =
-          profile.photos
-            ?.filter((photo: any) => photosUrl.includes(photo.url))
-            ?.map((photo: any) => ({
-              _type: "image",
-              _key: nanoid(),
-              asset: {
-                _type: "reference",
-                _ref: photo.asset._ref,
-              },
-            })) || [];
+        const finalGallery = [
+          ...existingImages.map((img: any) => ({
+            _type: "image",
+            _key: img._key,
+            asset: {
+              _type: "reference",
+              _ref: img.asset._ref,
+            },
+          })),
+          ...uploadedImageReferences
+        ];
 
         // Update the profile in Sanity
         await client
           .patch(profile._id)
           .set({
             ...dataToUpdate,
-            photos: [...existingPhotos, ...uploadedImageReferences],
+            gallery: finalGallery,
             userId: user.id,
           })
           .commit();
 
         // Redirect after successful update
-        router.push("/");
+        router.push("/profile");
       } catch (err) {
         // Handle errors
         console.error("Error updating profile:", err);
@@ -94,15 +109,13 @@ export default function ClientEditProfilePage({ profile }: { profile: any }) {
     // Wait for all uploads to complete
     return Promise.all(uploadPromises);
   };
-
   return (
     <div className="container mx-auto py-10">
       <ProfileForm
         initialData={{
           ...profile,
-          birthday: new Date(profile.birthday),
-          photosUrl: profile.photos?.map((photo: any) => photo.url),
-          photos: profile.photos?.map((photo: any) => 0),
+          dateOfBirth: profile.dateOfBirth ? new Date(profile.dateOfBirth) : undefined,
+          gallery: profile.gallery || [],
         }}
         onSubmit={handleSubmit}
         isLoading={isPending}

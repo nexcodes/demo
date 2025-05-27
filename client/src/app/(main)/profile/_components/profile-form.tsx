@@ -1,12 +1,17 @@
 "use client";
 
-import type React from "react";
-import { useState, useRef } from "react";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
-import Image from "next/image";
-import { X, Camera, Loader2, Plus } from "lucide-react";
+import { DatePicker } from "@/components/date-picker";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Form,
   FormControl,
@@ -17,7 +22,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import { Progress } from "@/components/ui/progress";
 import {
   Select,
   SelectContent,
@@ -25,28 +30,31 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Progress } from "@/components/ui/progress";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Textarea } from "@/components/ui/textarea";
 import {
   DatingProfileForm,
   datingProfileFormSchema,
 } from "@/schemas/dating-profile.schema";
-import { DatePicker } from "@/components/date-picker";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { Camera, Plus, X } from "lucide-react";
+import Image from "next/image";
+import React, { useEffect, useRef, useState } from "react";
+import { useForm } from "react-hook-form";
 
 interface TagInputProps {
   value?: string[];
   onChange: (tags: string[]) => void;
   placeholder?: string;
   maxTags: number;
+}
+
+interface ExistingImage {
+  url: string;
+  _key: string;
+  asset: {
+    _ref: string;
+    _type: "reference";
+  };
 }
 
 const interestOptions = [
@@ -77,9 +85,17 @@ const interestOptions = [
 ];
 
 type ProfileFormProps = {
-  initialData?: Partial<DatingProfileForm>;
-  onSubmit: (values: DatingProfileForm) => void;
+  initialData?: Partial<DatingProfileForm> & {
+    gallery?: ExistingImage[];
+  };
+  onSubmit: (
+    values: DatingProfileForm & {
+      imagesToDelete?: string[];
+      existingImages?: ExistingImage[];
+    }
+  ) => void;
   isLoading?: boolean;
+  isEditing?: boolean;
 };
 
 // Mock TagInput component
@@ -155,13 +171,21 @@ export function ProfileForm({
   initialData,
   onSubmit,
   isLoading = false,
+  isEditing,
 }: ProfileFormProps) {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [selectedPreviews, setSelectedPreviews] = useState<string[]>([]);
+  const [existingImages, setExistingImages] = useState<
+    Array<{
+      url: string;
+      _key: string;
+      asset: { _ref: string; _type: "reference" };
+    }>
+  >([]);
+  const [imagesToDelete, setImagesToDelete] = useState<string[]>([]);
   const [deletePhotoIndex, setDeletePhotoIndex] = useState<number | null>(null);
   const [formProgress, setFormProgress] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
   const form = useForm<DatingProfileForm>({
     resolver: zodResolver(datingProfileFormSchema),
     defaultValues: {
@@ -186,7 +210,16 @@ export function ProfileForm({
     },
     mode: "onChange",
   });
-
+  // Initialize existing images and previews from initialData
+  useEffect(() => {
+    if (initialData?.gallery && Array.isArray(initialData.gallery)) {
+      const existingGallery = initialData.gallery.filter(
+        (item: ExistingImage) => item && typeof item === "object" && item.url
+      );
+      setExistingImages(existingGallery);
+      setSelectedPreviews(existingGallery.map((img: ExistingImage) => img.url));
+    }
+  }, [initialData]);
   // Calculate form completion progress
   const calculateProgress = () => {
     const values = form.getValues();
@@ -210,7 +243,10 @@ export function ProfileForm({
     let filledFields = 0;
     requiredFields.forEach((field) => {
       const value = values[field as keyof typeof values];
-      if (field === "gallery" && selectedFiles.length > 0) {
+      if (
+        field === "gallery" &&
+        (selectedFiles.length > 0 || existingImages.length > 0)
+      ) {
         filledFields++;
       } else if (
         field === "height" &&
@@ -247,39 +283,76 @@ export function ProfileForm({
     setFormProgress(progress);
     return progress;
   };
-
   // Update progress when form values change
   form.watch(() => {
     calculateProgress();
   });
+
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       const files = Array.from(e.target.files);
-      const newFiles = [...selectedFiles, ...files].slice(0, 6);
-      setSelectedFiles(newFiles);
+      const totalImages = existingImages.length + selectedFiles.length;
+      const availableSlots = 6 - totalImages;
+      const filesToAdd = files.slice(0, availableSlots);
 
-      const newPreviews = files.map((file) => URL.createObjectURL(file));
-      setSelectedPreviews((prev) => [...prev, ...newPreviews].slice(0, 6));
+      if (filesToAdd.length > 0) {
+        const newFiles = [...selectedFiles, ...filesToAdd];
+        setSelectedFiles(newFiles);
 
-      // Set gallery to files for form validation
-      form.setValue("gallery", newFiles);
+        const newPreviews = filesToAdd.map((file) => URL.createObjectURL(file));
+        setSelectedPreviews((prev) => [...prev, ...newPreviews]);
+
+        // Set gallery to files for form validation
+        form.setValue("gallery", newFiles);
+        form.trigger("gallery");
+      }
+    }
+  };
+
+  const removePhoto = (index: number) => {
+    setDeletePhotoIndex(null);
+
+    // Check if it's an existing image or new file
+    if (index < existingImages.length) {
+      // Removing existing image - add to delete list
+      const imageToDelete = existingImages[index];
+      setImagesToDelete((prev) => [...prev, imageToDelete.asset._ref]);
+
+      // Remove from existing images
+      const updatedExistingImages = existingImages.filter(
+        (_, i) => i !== index
+      );
+      setExistingImages(updatedExistingImages);
+
+      // Remove from previews
+      const updatedPreviews = selectedPreviews.filter((_, i) => i !== index);
+      setSelectedPreviews(updatedPreviews);
+    } else {
+      // Removing new file
+      const fileIndex = index - existingImages.length;
+      const updatedFiles = selectedFiles.filter((_, i) => i !== fileIndex);
+      setSelectedFiles(updatedFiles);
+
+      // Remove from previews
+      const updatedPreviews = selectedPreviews.filter((_, i) => i !== index);
+      setSelectedPreviews(updatedPreviews);
+
+      // Update form
+      form.setValue("gallery", updatedFiles);
       form.trigger("gallery");
     }
   };
-  const removePhoto = (index: number) => {
-    setDeletePhotoIndex(null);
-    const updatedFiles = selectedFiles.filter((_, i) => i !== index);
-    const updatedPreviews = selectedPreviews.filter((_, i) => i !== index);
-    setSelectedFiles(updatedFiles);
-    setSelectedPreviews(updatedPreviews);
-
-    // Set gallery to files for form validation
-    form.setValue("gallery", updatedFiles);
-    form.trigger("gallery");
-  };
 
   const handleSubmit = async (values: DatingProfileForm) => {
-    onSubmit(values);
+    // Add images to delete and existing images data to the form data
+    const submitData = {
+      ...values,
+      imagesToDelete,
+      existingImages: existingImages.filter(
+        (img) => !imagesToDelete.includes(img.asset._ref)
+      ),
+    };
+    onSubmit(submitData);
   };
 
   return (
@@ -513,8 +586,7 @@ export function ProfileForm({
                               );
                             })}
                           </div>
-                        )}
-
+                        )}{" "}
                         {/* Add Photo Button */}
                         {selectedPreviews.length < 6 && (
                           <div className="flex flex-col items-center justify-center">
@@ -1027,14 +1099,7 @@ export function ProfileForm({
                 className="w-full h-14 bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white font-semibold text-lg rounded-xl shadow-lg"
                 disabled={isLoading}
               >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                    Creating Profile...
-                  </>
-                ) : (
-                  "Create Profile"
-                )}
+                {isEditing ? "Update Profile" : "Create Profile"}
               </Button>
             </div>
           </form>
@@ -1083,7 +1148,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen">
-      <ProfileForm onSubmit={handleSubmit} />
+      <ProfileForm onSubmit={handleSubmit} isEditing />
     </div>
   );
 }
