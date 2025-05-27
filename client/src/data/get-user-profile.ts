@@ -1,98 +1,245 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { currentUser } from "@/lib/auth";
 import { client, urlFor } from "@/lib/sanity";
-import { profileSchema } from "@/schemas";
-import { z } from "zod";
+import {
+  type DatingProfile
+} from "@/schemas/dating-profile.schema";
 
-const schema = profileSchema.extend({
-  birthday: z.string(),
-  _id: z.string(),
-  documentId: z.string(),
-  pictures: z
-    .array(
-      z.object({
-        _key: z.string(),
-        asset: z.object({
-          _ref: z.string(),
-        }),
-      })
-    )
-    .optional(),
-});
-
-// Ensure compatibility with existing code that expects id field and photos structure
-export type Profile = Omit<z.infer<typeof schema>, "_id"> & {
-  id: number | string; // Support both Strapi's number IDs and Sanity's string IDs
-  photos?: Array<{ id: string | number; url: string }>; // Support both ID types
+// Extended type to include Sanity-specific fields
+export type SanityDatingProfile = DatingProfile & {
+  _id: string;
+  _createdAt: string;
+  _updatedAt: string;
+  userId: string;
 };
 
-export const getUserProfile = async (): Promise<Profile | null> => {
+// Profile type with formatted gallery for frontend use
+export type FormattedDatingProfile = Omit<SanityDatingProfile, "gallery"> & {
+  gallery: Array<{
+    _key: string;
+    url: string;
+    alt?: string;
+    asset: {
+      _ref: string;
+      _type: "reference";
+    };
+  }>;
+};
+
+export const getUserProfile =
+  async (): Promise<FormattedDatingProfile | null> => {
+    try {
+      const user = await currentUser();
+
+      if (!user) {
+        return null;
+      }
+
+      // GROQ query to fetch the dating profile by userId
+      const query = `*[_type == "profile" && userId == $userId][0]{
+      _id,
+      _createdAt,
+      _updatedAt,
+      firstName,
+      lastName,
+      dateOfBirth,
+      postcode,
+      datingPurpose,
+      gallery[]{
+        _key,
+        alt,
+        asset->{
+          _id,
+          _ref,
+          url
+        }
+      },
+      aboutMe,
+      aboutYou,
+      height,
+      education,
+      work,
+      zodiac,
+      poisonsOfChoice,
+      interests,
+      personalityChoice,
+      dontShowMe,
+      dealBreakers,
+      userId
+    }`;
+
+      const profile = await client.fetch(query, { userId: user.id });
+
+      if (!profile) {
+        return null;
+      }
+
+      // Format the gallery images with URLs
+      const formattedGallery =
+        profile.gallery?.map((image: any) => ({
+          _key: image._key,
+          url: urlFor(image).url(),
+          alt: image.alt || "",
+          asset: {
+            _ref: image.asset._ref,
+            _type: "reference" as const,
+          },
+        })) || [];
+
+      return {
+        ...profile,
+        gallery: formattedGallery,
+      };
+    } catch (error) {
+      console.error("Error fetching user profile:", error);
+      return null;
+    }
+  };
+
+// Function to get profile by specific user ID (useful for admin or viewing other profiles)
+export const getProfileByUserId = async (
+  userId: string
+): Promise<FormattedDatingProfile | null> => {
+  try {
+    const query = `*[_type == "profile" && userId == $userId][0]{
+      _id,
+      _createdAt,
+      _updatedAt,
+      firstName,
+      lastName,
+      dateOfBirth,
+      postcode,
+      datingPurpose,
+      gallery[]{
+        _key,
+        alt,
+        asset->{
+          _id,
+          _ref,
+          url
+        }
+      },
+      aboutMe,
+      aboutYou,
+      height,
+      education,
+      work,
+      zodiac,
+      poisonsOfChoice,
+      interests,
+      personalityChoice,
+      dontShowMe,
+      dealBreakers,
+      userId
+    }`;
+
+    const profile = await client.fetch(query, { userId });
+
+    if (!profile) {
+      return null;
+    }
+
+    // Format the gallery images with URLs
+    const formattedGallery =
+      profile.gallery?.map((image: any) => ({
+        _key: image._key,
+        url: urlFor(image).url(),
+        alt: image.alt || "",
+        asset: {
+          _ref: image.asset._ref,
+          _type: "reference" as const,
+        },
+      })) || [];
+
+    return {
+      ...profile,
+      gallery: formattedGallery,
+    };
+  } catch (error) {
+    console.error("Error fetching profile by user ID:", error);
+    return null;
+  }
+};
+
+// Function to check if user has a profile
+export const hasUserProfile = async (): Promise<boolean> => {
   try {
     const user = await currentUser();
 
     if (!user) {
-      return null;
+      return false;
     }
 
-    // Use GROQ query to fetch profile by userId
-    const query = `*[_type == "profile" && userId == $userId][0]{
+    const query = `count(*[_type == "profile" && userId == $userId])`;
+    const count = await client.fetch(query, { userId: user.id });
+
+    return count > 0;
+  } catch (error) {
+    console.error("Error checking if user has profile:", error);
+    return false;
+  }
+};
+
+// Function to get multiple profiles (for matching/discovery)
+export const getProfiles = async (
+  limit: number = 10,
+  excludeUserId?: string
+): Promise<FormattedDatingProfile[]> => {
+  try {
+    const excludeFilter = excludeUserId
+      ? ` && userId != "${excludeUserId}"`
+      : "";
+
+    const query = `*[_type == "profile"${excludeFilter}][0...${limit}]{
       _id,
-      documentId,
-      name,
-      gender,
-      birthday,
-      location,
-      lookingFor,
-      relationshipType,
-      photos[],
+      _createdAt,
+      _updatedAt,
+      firstName,
+      lastName,
+      dateOfBirth,
+      postcode,
+      datingPurpose,
+      gallery[]{
+        _key,
+        alt,
+        asset->{
+          _id,
+          _ref,
+          url
+        }
+      },
       aboutMe,
-      interestedIn,
-      ageRange,
-      smoking,
-      drinking,
-      cannabis,
+      aboutYou,
+      height,
+      education,
+      work,
+      zodiac,
+      poisonsOfChoice,
       interests,
-      lookingForKids,
-      vaccinationStatus,
+      personalityChoice,
+      dontShowMe,
+      dealBreakers,
       userId
     }`;
 
-    const profile = await client.fetch(query, { userId: user.id });
+    const profiles = await client.fetch(query);
 
-    if (profile) {
-      const { photos, ...rest } = profile;
-      // Convert Sanity image references to URLs
-      // Interface for the formatted photo structure
-      interface FormattedPhoto {
-        id: string;
-        url: string;
-      }
-
-      // Interface for the Sanity picture structure
-      interface SanityPicture {
-        _key: string;
-        asset: {
-          _ref: string;
-        };
-      }
-
-      const formattedPhotos: FormattedPhoto[] | undefined = photos?.map(
-        (picture: SanityPicture) => {
-          return {
-            id: picture._key,
-            url: urlFor(picture).url(),
-            asset: {
-              _ref: picture.asset._ref,
-            },
-          };
-        }
-      );
-
-      return { ...rest, photos: formattedPhotos };
-    }
-
-    return null;
-  } catch (err) {
-    console.log(err);
-    return null;
+    // Format all profiles
+    return profiles.map((profile: any) => ({
+      ...profile,
+      gallery:
+        profile.gallery?.map((image: any) => ({
+          _key: image._key,
+          url: urlFor(image).url(),
+          alt: image.alt || "",
+          asset: {
+            _ref: image.asset._ref,
+            _type: "reference" as const,
+          },
+        })) || [],
+    }));
+  } catch (error) {
+    console.error("Error fetching profiles:", error);
+    return [];
   }
 };

@@ -5,4 +5,4 @@ export const VERIFY_OTP_REDIRECT = "/verify";
 export const CREATE_PROFILE_REDIRECT = "/profile/create";
 
 export const authRoutes = ["/sign-in", "/callback"];
-export const publicRoutes = ["/verify"];
+export const publicRoutes = ["/verify", "/"];

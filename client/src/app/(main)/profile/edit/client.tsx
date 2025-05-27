@@ -2,15 +2,12 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 "use client";
 
-import { Profile } from "@/data/get-user-profile";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { client } from "@/lib/sanity";
-import { profileSchema } from "@/schemas";
+import { nanoid } from "nanoid";
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
-import { z } from "zod";
 import { ProfileForm } from "../_components/profile-form";
-import { nanoid } from "nanoid";
 
 export default function ClientEditProfilePage({ profile }: { profile: any }) {
   const router = useRouter();
@@ -18,20 +15,21 @@ export default function ClientEditProfilePage({ profile }: { profile: any }) {
   const { user } = useCurrentUser();
 
   const [isPending, startTransition] = useTransition();
-  const handleSubmit = async (data: any, files: File[]) => {
+  const handleSubmit = async (data: any) => {
     startTransition(async () => {
       if (!user?.id) {
         console.error("User ID is required");
         return;
       }
       try {
+        // Extract files from gallery
+        const files = data.gallery || [];
         // Upload new files and get media references
-        const uploadedImageReferences = await uploadToSanity(files);
+        const uploadedImageReferences =
+          files.length > 0 ? await uploadToSanity(files) : [];
 
         // Extract fields that shouldn't be sent to Sanity
-        const { id, documentId, photosUrl, ...dataToUpdate } = data;
-
-        console.log(profile);
+        const { id, documentId, photosUrl, gallery, ...dataToUpdate } = data;
 
         // Combine existing photos with newly uploaded ones
         const existingPhotos =

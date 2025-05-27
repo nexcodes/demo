@@ -2,10 +2,9 @@
 
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { client } from "@/lib/sanity";
-import { profileSchema } from "@/schemas";
+import { DatingProfileForm } from "@/schemas/dating-profile.schema";
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
-import { z } from "zod";
 import { ProfileForm } from "../_components/profile-form";
 import { nanoid } from "nanoid";
 
@@ -49,22 +48,19 @@ export default function CreateProfilePage() {
     return Promise.all(uploadPromises);
   };
 
-  const handleSubmit = async (
-    data: z.infer<typeof profileSchema>,
-    files: File[]
-  ) => {
+  const handleSubmit = async (data: DatingProfileForm) => {
     startTransition(async () => {
       if (!user?.id) return;
 
       try {
         // Upload files and get media references
-        const uploadedImageReferences = await uploadToSanity(files);
+        const uploadedImageReferences = await uploadToSanity(data.gallery);
 
         // Create profile with media references
         await client.create({
           _type: "profile",
           ...data,
-          photos: uploadedImageReferences,
+          gallery: uploadedImageReferences,
           userId: user.id,
         });
 
