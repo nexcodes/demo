@@ -64,7 +64,7 @@ export default function CreateProfilePage() {
           userId: user.id,
         });
 
-        router.push("/profile");
+        router.push("/");
       } catch (err) {
         console.error("Error:", err);
       }

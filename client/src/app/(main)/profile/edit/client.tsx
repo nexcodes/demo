@@ -70,7 +70,7 @@ export default function ClientEditProfilePage({ profile }: { profile: any }) {
           .commit();
 
         // Redirect after successful update
-        router.push("/profile");
+        router.push("/");
       } catch (err) {
         // Handle errors
         console.error("Error updating profile:", err);
