@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -14,8 +15,10 @@ import {
   Eye,
   User,
   Camera,
+  Edit,
 } from "lucide-react";
 import Image from "next/image";
+import Link from "next/link";
 
 export function ProfileContent({ profile }: { profile: any }) {
   const calculateAge = (dateOfBirth: string) => {
@@ -46,8 +49,7 @@ export function ProfileContent({ profile }: { profile: any }) {
   return (
     <div className="min-h-screen bg-gradient-to-br from-pink-50 via-white to-purple-50">
       <div className="max-w-4xl mx-auto p-4 space-y-6">
-        {/* Hero Section */}
-        <Card className="overflow-hidden border-0 shadow-2xl bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500">
+        {/* Hero Section */}        <Card className="overflow-hidden border-0 shadow-2xl bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500">
           <div className="relative h-96">
             {profile.gallery[0] && (
               <Image
@@ -58,6 +60,15 @@ export function ProfileContent({ profile }: { profile: any }) {
               />
             )}
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+            <Link href="/profile/edit">
+              <Button 
+                className="absolute top-4 right-4 bg-black/20 backdrop-blur-sm border border-white/30 text-white hover:bg-black/30 transition-all"
+                size="sm"
+              >
+                <Edit className="w-4 h-4 mr-2" />
+                Edit Profile
+              </Button>
+            </Link>
             <div className="absolute bottom-6 left-6 text-white">
               <h1 className="text-4xl font-bold mb-2">
                 {profile.firstName} {profile.lastName}

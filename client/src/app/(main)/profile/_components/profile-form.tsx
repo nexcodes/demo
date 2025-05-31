@@ -57,33 +57,6 @@ interface ExistingImage {
   };
 }
 
-const interestOptions = [
-  "Hiking",
-  "Music",
-  "Photography",
-  "Art",
-  "Cooking",
-  "Reading",
-  "Travel",
-  "Dogs",
-  "Fitness",
-  "Movies",
-  "Gaming",
-  "Dancing",
-  "Yoga",
-  "Coffee",
-  "Wine",
-  "Books",
-  "Sports",
-  "Nature",
-  "Technology",
-  "Fashion",
-  "Food",
-  "Adventure",
-  "Comedy",
-  "Outdoors",
-];
-
 type ProfileFormProps = {
   initialData?: Partial<DatingProfileForm> & {
     gallery?: ExistingImage[];
@@ -145,24 +118,6 @@ const TagInput = ({
         }}
         placeholder={placeholder}
       />
-      <div className="flex flex-wrap gap-2">
-        {interestOptions
-          .filter((option) => !value.includes(option))
-          .slice(0, 8)
-          .map((option) => (
-            <Button
-              key={option}
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => addTag(option)}
-              className="h-8 text-xs"
-            >
-              <Plus className="h-3 w-3 mr-1" />
-              {option}
-            </Button>
-          ))}
-      </div>
     </div>
   );
 };
