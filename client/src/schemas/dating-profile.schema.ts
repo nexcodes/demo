@@ -1,8 +1,9 @@
 import { z } from "zod";
 
-// Helper function to calculate age
-const calculateAge = (birthDate: Date): number => {
+// Helper function to validate age (18+)
+const validateAge = (dateString: string) => {
   const today = new Date();
+  const birthDate = new Date(dateString);
   let age = today.getFullYear() - birthDate.getFullYear();
   const monthDiff = today.getMonth() - birthDate.getMonth();
 
@@ -13,191 +14,245 @@ const calculateAge = (birthDate: Date): number => {
     age--;
   }
 
-  return age;
+  return age >= 18;
 };
 
-// Dating Profile Zod Schema
-export const datingProfileSchema = z.object({
+// Enums for better type safety
+export const DatingPurpose = z.enum(["fun", "serious", "marriage"]);
+
+export const Education = z.enum([
+  "doctorate",
+  "masters",
+  "bachelors",
+  "hnd",
+  "college",
+  "leaver",
+]);
+
+export const ZodiacSign = z.enum([
+  "aries",
+  "taurus",
+  "gemini",
+  "cancer",
+  "leo",
+  "virgo",
+  "libra",
+  "scorpio",
+  "sagittarius",
+  "capricorn",
+  "aquarius",
+  "pisces",
+]);
+
+export const Substances = z.enum(["smoker", "drinker", "both", "other_stuff"]);
+
+export const Frequency = z.enum(["none", "lightly", "medium", "heavily"]);
+
+export const WeightUnit = z.enum(["lbs", "kg"]);
+
+export const PersonalityChoice = z.enum(["optionA", "optionB"]);
+
+// Sub-schemas
+export const HeightSchema = z.object({
+  feet: z.number().min(3).max(8),
+  inches: z.number().min(0).max(11),
+});
+
+export const WeightSchema = z.object({
+  value: z.number().min(50).max(500),
+  unit: WeightUnit,
+});
+
+export const PoisonsOfChoiceSchema = z.object({
+  substances: Substances,
+  frequency: Frequency,
+});
+
+export const PersonalityChoiceSchema = z.object({
+  category: z.string(),
+  choice: PersonalityChoice,
+});
+
+// Main Profile Schema
+export const ProfileSchema = z.object({
   // Basic Information
-  firstName: z
-    .string()
-    .min(1, "First name is required")
-    .max(50, "First name must be 50 characters or less"),
-
-  lastName: z
-    .string()
-    .min(1, "Last name is required")
-    .max(50, "Last name must be 50 characters or less"),
-
-  dateOfBirth: z
-    .string()
-    .or(z.date())
-    .refine(
-      (date) => {
-        const birthDate = typeof date === "string" ? new Date(date) : date;
-        return calculateAge(birthDate) >= 18;
-      },
-      {
-        message: "Must be at least 18 years old",
-      }
-    ),
-
-  // Location & Dating Preferences
-  postcode: z
-    .string()
-    .min(3, "Postcode must be at least 3 characters")
-    .max(10, "Postcode must be 10 characters or less"),
-
-  datingPurpose: z.enum(["fun", "serious", "marriage"], {
-    errorMap: () => ({ message: "Please select a dating purpose" }),
+  firstName: z.string().min(1).max(50),
+  lastName: z.string().min(1).max(50),
+  dateOfBirth: z.string().refine(validateAge, {
+    message: "Must be at least 18 years old",
   }),
 
-  // Gallery - Array of image objects or file objects
+  // Location & Dating Preferences
+  postcode: z.string().min(3).max(10),
+  datingPurpose: DatingPurpose,
+
+  // Gallery - array of image objects (simplified for Zod as Sanity image structure is complex)
   gallery: z
     .array(
       z.object({
-        url: z.string().url().optional(),
-        alt: z.string().optional(),
-        asset: z
-          .object({
-            _ref: z.string().optional(),
-            _type: z.literal("reference").optional(),
-          })
-          .optional(),
-      })
-    )
-    .min(1, "At least 1 image is required")
-    .max(6, "Maximum 6 images allowed"),
-
-  // About Sections
-  aboutMe: z
-    .string()
-    .min(10, "About me must be at least 10 characters")
-    .max(1000, "About me must be 1000 characters or less"),
-
-  aboutYou: z
-    .string()
-    .min(10, "About you must be at least 10 characters")
-    .max(1000, "About you must be 1000 characters or less"),
-
-  // Physical Attributes
-  height: z.object({
-    feet: z
-      .number()
-      .min(3, "Height must be at least 3 feet")
-      .max(8, "Height must be 8 feet or less"),
-    inches: z
-      .number()
-      .min(0, "Inches must be 0 or more")
-      .max(11, "Inches must be 11 or less"),
-  }),
-
-  // Background Information
-  education: z.enum(
-    ["doctorate", "masters", "bachelors", "hnd", "college", "leaver"],
-    {
-      errorMap: () => ({ message: "Please select an education level" }),
-    }
-  ),
-
-  work: z
-    .string()
-    .min(1, "Work field is required")
-    .max(100, "Work description must be 100 characters or less"),
-
-  zodiac: z
-    .enum([
-      "aries",
-      "taurus",
-      "gemini",
-      "cancer",
-      "leo",
-      "virgo",
-      "libra",
-      "scorpio",
-      "sagittarius",
-      "capricorn",
-      "aquarius",
-      "pisces",
-    ])
-    .optional(),
-
-  // Lifestyle Choices
-  poisonsOfChoice: z.object({
-    substances: z.enum(["none", "alcohol", "cigarettes_weed", "more_stuff"], {
-      errorMap: () => ({ message: "Please select substance preference" }),
-    }),
-    frequency: z.enum(["none", "lightly", "medium", "heavily"], {
-      errorMap: () => ({ message: "Please select frequency" }),
-    }),
-  }),
-
-  // Interests
-  interests: z
-    .array(z.string())
-    .min(1, "At least 1 interest is required")
-    .max(20, "Maximum 20 interests allowed"),
-
-  // Personality Choices
-  personalityChoice: z.enum(
-    [
-      "fat_vs_short",
-      "hates_pets_vs_loves_pets",
-      "no_humor_vs_laughs_everything",
-      "talks_self_vs_never_shares",
-      "average_loyal_vs_good_disloyal",
-      "social_media_vs_no_presence",
-      "stay_home_vs_never_home",
-      "bad_taste_vs_judges_taste",
-      "mommy_vs_daddy_issues",
-      "no_ambition_vs_workaholic",
-      "conspiracy_vs_fake_news",
-      "know_all_vs_know_nothing",
-      "spends_much_vs_frugal",
-      "smart_poor_vs_dumb_rich",
-      "rich_unethical_vs_poor_ethical",
-    ],
-    {
-      errorMap: () => ({ message: "Please make a personality choice" }),
-    }
-  ),
-  // Preferences & Deal Breakers
-  dontShowMe: z
-    .array(z.string())
-    .max(3, "Maximum 3 entries allowed")
-    .optional(),
-
-  dealBreakers: z
-    .array(z.string())
-    .max(3, "Maximum 3 entries allowed")
-    .optional(),
-});
-
-// Type inference
-export type DatingProfile = z.infer<typeof datingProfileSchema>;
-
-// Partial schema for updates
-export const datingProfileUpdateSchema = datingProfileSchema.partial();
-export type DatingProfileUpdate = z.infer<typeof datingProfileUpdateSchema>;
-
-// Schema for form validation (before image upload)
-export const datingProfileFormSchema = datingProfileSchema
-  .omit({
-    gallery: true,
-  })
-  .extend({
-    gallery: z.array(z.instanceof(File)).min(0).max(6),
-    imagesToDelete: z.array(z.string()).optional(),
-    existingImages: z.array(
-      z.object({
-        url: z.string(),
-        _key: z.string(),
         asset: z.object({
           _ref: z.string(),
           _type: z.literal("reference"),
         }),
+        hotspot: z
+          .object({
+            x: z.number(),
+            y: z.number(),
+            height: z.number(),
+            width: z.number(),
+          })
+          .optional(),
+        crop: z
+          .object({
+            top: z.number(),
+            bottom: z.number(),
+            left: z.number(),
+            right: z.number(),
+          })
+          .optional(),
       })
-    ).optional(),
+    )
+    .min(1)
+    .max(6),
+
+  // About Sections
+  aboutMe: z.string().min(10).max(1000),
+  aboutYou: z.string().min(10).max(1000),
+
+  // Physical Attributes
+  height: HeightSchema,
+  weight: WeightSchema,
+
+  // Background Information
+  education: Education,
+  work: z.string().min(1).max(100),
+  zodiac: ZodiacSign.optional(),
+
+  // Lifestyle Choices
+  poisonsOfChoice: PoisonsOfChoiceSchema,
+
+  // Interests
+  interests: z.array(z.string()).min(1).max(20),
+
+  // Personality Choices
+  personalityChoices: z
+    .array(PersonalityChoiceSchema)
+    .length(15)
+    .refine(
+      (choices) => {
+        const expectedCategories = [
+          "Too Fat vs. Too Short",
+          "Hates Pets vs. Loves Pets Too Much",
+          "No Sense of Humor vs. Laughs at Everything",
+          "Talks Only About Themselves vs. Never Shares Anything Personal",
+          "Average looking and loyal vs. Good looking but disloyal",
+          "Addicted to Social Media vs. Has No Online Presence",
+          "Always Wants to Stay Home vs. Never Wants to Stay Home",
+          "Terrible Taste in Music vs. Judges Your Taste in Music",
+          "Mommy Issues vs. Daddy Issues",
+          "No Ambition vs. Workaholic",
+          'Believes in Every Conspiracy Theory vs. Dismisses Everything as "Fake News"',
+          "Know-It-All vs. Knows-Nothing",
+          "Spends Too Much Money vs. Excessively Frugal",
+          "Smart, highly motivated, and poor vs. Not smart, highly unmotivated, but well-off",
+          "Rich but very unethical and immoral vs. Poor but very ethical and moral",
+        ];
+
+        const providedCategories = choices.map((choice) => choice.category);
+        return expectedCategories.every((category) =>
+          providedCategories.includes(category)
+        );
+      },
+      {
+        message: "All 15 personality choice categories must be present",
+      }
+    ),
+
+  // Preferences & Deal Breakers
+  dontShowMe: z.array(z.string()).max(3),
+  dealBreakers: z.array(z.string()).max(3),
+
+  // User ID (hidden field)
+  userId: z.string().optional(),
+});
+
+// Type inference
+export type Profile = z.infer<typeof ProfileSchema>;
+export type Height = z.infer<typeof HeightSchema>;
+export type Weight = z.infer<typeof WeightSchema>;
+export type PoisonsOfChoice = z.infer<typeof PoisonsOfChoiceSchema>;
+export type PersonalityChoiceType = z.infer<typeof PersonalityChoiceSchema>;
+
+// Validation function
+export const validateProfile = (data: unknown) => {
+  return ProfileSchema.safeParse(data);
+};
+
+// Partial schema for updates
+export const PartialProfileSchema = ProfileSchema.partial();
+export type PartialProfile = z.infer<typeof PartialProfileSchema>;
+
+// Schema for form validation (before image upload)
+export const datingProfileFormSchema = ProfileSchema
+  .omit({
+    gallery: true,
+  })
+  .extend({
+    gallery: z.array(z.instanceof(File)).optional(),
+    imagesToDelete: z.array(z.string()).optional(),
+    existingImages: z
+      .array(
+        z.object({
+          url: z.string(),
+          _key: z.string(),
+          asset: z.object({
+            _ref: z.string(),
+            _type: z.literal("reference"),
+          }),
+        })
+      )
+      .optional(),
   });
 export type DatingProfileForm = z.infer<typeof datingProfileFormSchema>;
 
+// Example usage:
+/*
+const profileData = {
+  firstName: "John",
+  lastName: "Doe",
+  dateOfBirth: "1995-01-15",
+  postcode: "12345",
+  datingPurpose: "serious",
+  gallery: [
+    {
+      asset: { _ref: "image-123", _type: "reference" }
+    }
+  ],
+  aboutMe: "I love hiking and reading books in my spare time.",
+  aboutYou: "Looking for someone who shares similar interests and values.",
+  height: { feet: 6, inches: 2 },
+  weight: { value: 180, unit: "lbs" },
+  education: "bachelors",
+  work: "Software Engineer",
+  zodiac: "capricorn",
+  poisonsOfChoice: {
+    substances: "drinker",
+    frequency: "lightly"
+  },
+  interests: ["hiking", "reading", "movies"],
+  personalityChoices: [
+    { category: "Too Fat vs. Too Short", choice: "optionA" },
+    // ... all 15 categories
+  ],
+  dontShowMe: ["smokers"],
+  dealBreakers: ["dishonesty"],
+  userId: "user123"
+}
+
+const result = validateProfile(profileData)
+if (result.success) {
+  console.log("Valid profile:", result.data)
+} else {
+  console.log("Validation errors:", result.error.issues)
+}
+*/

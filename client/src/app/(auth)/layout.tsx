@@ -54,20 +54,22 @@ export default function AuthLayout({
         <NavigationMenu>
           <NavigationMenuList>
             <NavigationMenuItem>
-              <NavigationMenuTrigger>Company</NavigationMenuTrigger>
+              <NavigationMenuTrigger className="!bg-black !text-white border-0 hover:!bg-zinc-800 hover:!text-white focus:!bg-zinc-800 focus:!text-white data-[state=open]:!bg-zinc-800">
+                Company
+              </NavigationMenuTrigger>
               <NavigationMenuContent>
-                <ul className="grid w-[400px] gap-3 p-4 md:w-[500px] md:grid-cols-2 lg:w-[600px]">
+                <ul className="grid w-[400px] gap-3 p-4 md:w-[500px] md:grid-cols-2 lg:w-[600px] bg-black border-none">
                   {legalPages.map((page) => (
                     <li key={page.title}>
                       <NavigationMenuLink asChild>
                         <Link
                           href={page.href}
-                          className="block select-none space-y-1 rounded-md p-3 leading-none no-underline outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground"
+                          className="block select-none space-y-1 rounded-md p-3 leading-none no-underline outline-none transition-colors bg-black text-white border-0 hover:bg-zinc-800 hover:text-white focus:bg-zinc-800 focus:text-white"
                         >
-                          <div className="text-sm font-medium leading-none">
+                          <div className="text-sm font-medium leading-none text-white">
                             {page.title}
                           </div>
-                          <p className="line-clamp-2 text-sm leading-snug text-muted-foreground">
+                          <p className="line-clamp-2 text-sm leading-snug text-gray-400">
                             {page.description}
                           </p>
                         </Link>

@@ -114,6 +114,31 @@ export const ProfileType = defineType({
         }),
       ],
     }),
+    defineField({
+      name: 'weight',
+      title: 'My Weight',
+      type: 'object',
+      fields: [
+        defineField({
+          name: 'value',
+          title: 'Weight',
+          type: 'number',
+          validation: (Rule) => Rule.required().min(50).max(500),
+        }),
+        defineField({
+          name: 'unit',
+          title: 'Unit',
+          type: 'string',
+          options: {
+            list: [
+              {title: 'Pounds (lbs)', value: 'lbs'},
+              {title: 'Kilograms (kg)', value: 'kg'},
+            ],
+          },
+          validation: (Rule) => Rule.required(),
+        }),
+      ],
+    }),
 
     // Background Information
     defineField({
@@ -172,10 +197,10 @@ export const ProfileType = defineType({
           type: 'string',
           options: {
             list: [
-              {title: 'None', value: 'none'},
-              {title: 'Alcohol', value: 'alcohol'},
-              {title: 'Cigarettes and/or Weed', value: 'cigarettes_weed'},
-              {title: 'More Stuff', value: 'more_stuff'},
+              {title: 'Smoker', value: 'smoker'},
+              {title: 'Drinker', value: 'drinker'},
+              {title: 'Both', value: 'both'},
+              {title: 'Other stuff', value: 'other_stuff'},
             ],
           },
           validation: (Rule) => Rule.required(),
@@ -211,57 +236,74 @@ export const ProfileType = defineType({
 
     // Personality Choices
     defineField({
-      name: 'personalityChoice',
-      title: 'If I had to choose (Only 1 selection possible)',
-      type: 'string',
-      options: {
-        list: [
-          {title: 'Too Fat vs. Too Short', value: 'fat_vs_short'},
-          {title: 'Hates Pets vs. Loves Pets Too Much', value: 'hates_pets_vs_loves_pets'},
-          {
-            title: 'No Sense of Humor vs. Laughs at Everything',
-            value: 'no_humor_vs_laughs_everything',
+      name: 'personalityChoices',
+      title: 'Personality Choices - Pick One from Each Pair',
+      type: 'array',
+      of: [
+        {
+          type: 'object',
+          fields: [
+            defineField({
+              name: 'category',
+              title: 'Category',
+              type: 'string',
+              readOnly: true,
+            }),
+            defineField({
+              name: 'choice',
+              title: 'Your Choice',
+              type: 'string',
+              options: {
+                list: [
+                  {title: 'Option A', value: 'optionA'},
+                  {title: 'Option B', value: 'optionB'},
+                ],
+              },
+              validation: (Rule) => Rule.required(),
+            }),
+          ],
+          preview: {
+            select: {
+              title: 'category',
+              subtitle: 'choice',
+            },
+            prepare(selection) {
+              const {title, subtitle} = selection
+              return {
+                title: title || 'Personality Choice',
+                subtitle: subtitle === 'optionA' ? 'Option A' : 'Option B',
+              }
+            },
           },
-          {
-            title: 'Talks Only About Themselves vs. Never Shares Anything Personal',
-            value: 'talks_self_vs_never_shares',
-          },
-          {
-            title: 'Average looking and loyal vs. Good looking but disloyal',
-            value: 'average_loyal_vs_good_disloyal',
-          },
-          {
-            title: 'Addicted to Social Media vs. Has No Online Presence',
-            value: 'social_media_vs_no_presence',
-          },
-          {
-            title: 'Always Wants to Stay Home vs. Never Wants to Stay Home',
-            value: 'stay_home_vs_never_home',
-          },
-          {
-            title: 'Terrible Taste in Music vs. Judges Your Taste in Music',
-            value: 'bad_taste_vs_judges_taste',
-          },
-          {title: 'Mommy Issues vs. Daddy Issues', value: 'mommy_vs_daddy_issues'},
-          {title: 'No Ambition vs. Workaholic', value: 'no_ambition_vs_workaholic'},
-          {
-            title: 'Believes in Every Conspiracy Theory vs. Dismisses Everything as "Fake News"',
-            value: 'conspiracy_vs_fake_news',
-          },
-          {title: 'Know-It-All vs. Knows-Nothing', value: 'know_all_vs_know_nothing'},
-          {title: 'Spends Too Much Money vs. Excessively Frugal', value: 'spends_much_vs_frugal'},
-          {
-            title:
-              'Smart, highly motivated, and poor vs. Not smart, highly unmotivated, but well-off',
-            value: 'smart_poor_vs_dumb_rich',
-          },
-          {
-            title: 'Rich but very unethical and immoral vs. Poor but very ethical and moral',
-            value: 'rich_unethical_vs_poor_ethical',
-          },
-        ],
-        layout: 'radio',
-      },
+        },
+      ],
+      initialValue: [
+        {category: 'Too Fat vs. Too Short', choice: null},
+        {category: 'Hates Pets vs. Loves Pets Too Much', choice: null},
+        {category: 'No Sense of Humor vs. Laughs at Everything', choice: null},
+        {category: 'Talks Only About Themselves vs. Never Shares Anything Personal', choice: null},
+        {category: 'Average looking and loyal vs. Good looking but disloyal', choice: null},
+        {category: 'Addicted to Social Media vs. Has No Online Presence', choice: null},
+        {category: 'Always Wants to Stay Home vs. Never Wants to Stay Home', choice: null},
+        {category: 'Terrible Taste in Music vs. Judges Your Taste in Music', choice: null},
+        {category: 'Mommy Issues vs. Daddy Issues', choice: null},
+        {category: 'No Ambition vs. Workaholic', choice: null},
+        {
+          category: 'Believes in Every Conspiracy Theory vs. Dismisses Everything as "Fake News"',
+          choice: null,
+        },
+        {category: 'Know-It-All vs. Knows-Nothing', choice: null},
+        {category: 'Spends Too Much Money vs. Excessively Frugal', choice: null},
+        {
+          category:
+            'Smart, highly motivated, and poor vs. Not smart, highly unmotivated, but well-off',
+          choice: null,
+        },
+        {
+          category: 'Rich but very unethical and immoral vs. Poor but very ethical and moral',
+          choice: null,
+        },
+      ],
       validation: (Rule) => Rule.required(),
     }),
 

@@ -31,14 +31,18 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
 import {
   DatingProfileForm,
   datingProfileFormSchema,
+  Profile,
 } from "@/schemas/dating-profile.schema";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Camera, Plus, X } from "lucide-react";
 import Image from "next/image";
-import React, { useEffect, useRef, useState } from "react";
+import type React from "react";
+import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 
 interface TagInputProps {
@@ -58,15 +62,10 @@ interface ExistingImage {
 }
 
 type ProfileFormProps = {
-  initialData?: Partial<DatingProfileForm> & {
+  initialData?: Partial<Profile> & {
     gallery?: ExistingImage[];
   };
-  onSubmit: (
-    values: DatingProfileForm & {
-      imagesToDelete?: string[];
-      existingImages?: ExistingImage[];
-    }
-  ) => void;
+  onSubmit: (values: DatingProfileForm) => void;
   isLoading?: boolean;
   isEditing?: boolean;
 };
@@ -122,6 +121,25 @@ const TagInput = ({
   );
 };
 
+// Personality choice categories
+const personalityCategories = [
+  "Too Fat vs. Too Short",
+  "Hates Pets vs. Loves Pets Too Much",
+  "No Sense of Humor vs. Laughs at Everything",
+  "Talks Only About Themselves vs. Never Shares Anything Personal",
+  "Average looking and loyal vs. Good looking but disloyal",
+  "Addicted to Social Media vs. Has No Online Presence",
+  "Always Wants to Stay Home vs. Never Wants to Stay Home",
+  "Terrible Taste in Music vs. Judges Your Taste in Music",
+  "Mommy Issues vs. Daddy Issues",
+  "No Ambition vs. Workaholic",
+  'Believes in Every Conspiracy Theory vs. Dismisses Everything as "Fake News"',
+  "Know-It-All vs. Knows-Nothing",
+  "Spends Too Much Money vs. Excessively Frugal",
+  "Smart, highly motivated, and poor vs. Not smart, highly unmotivated, but well-off",
+  "Rich but very unethical and immoral vs. Poor but very ethical and moral",
+];
+
 export function ProfileForm({
   initialData,
   onSubmit,
@@ -140,32 +158,57 @@ export function ProfileForm({
   const [imagesToDelete, setImagesToDelete] = useState<string[]>([]);
   const [deletePhotoIndex, setDeletePhotoIndex] = useState<number | null>(null);
   const [formProgress, setFormProgress] = useState(0);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const form = useForm<DatingProfileForm>({
+  const fileInputRef = useRef<HTMLInputElement>(null);  const form = useForm<DatingProfileForm>({
     resolver: zodResolver(datingProfileFormSchema),
     defaultValues: {
       firstName: "",
       lastName: "",
-      dateOfBirth: undefined,
       postcode: "",
       datingPurpose: undefined,
+      gallery: [], // Initialize as empty array of Files
       aboutMe: "",
       aboutYou: "",
       height: { feet: 5, inches: 6 },
+      weight: { value: 150, unit: "lbs" },
       education: undefined,
       work: "",
       zodiac: undefined,
       poisonsOfChoice: { substances: undefined, frequency: undefined },
       interests: [],
-      personalityChoice: undefined,
+      personalityChoices: personalityCategories.map((category) => ({
+        category,
+        choice: "optionA",
+      })),
       dontShowMe: [],
       dealBreakers: [],
-      ...initialData,
-      gallery: [],
+      userId: "",
+      // Only include compatible fields from initialData, excluding gallery
+      ...(initialData && {
+        firstName: initialData.firstName || "",
+        lastName: initialData.lastName || "",
+        postcode: initialData.postcode || "",
+        datingPurpose: initialData.datingPurpose,
+        aboutMe: initialData.aboutMe || "",
+        aboutYou: initialData.aboutYou || "",
+        height: initialData.height || { feet: 5, inches: 6 },
+        weight: initialData.weight || { value: 150, unit: "lbs" },
+        education: initialData.education,
+        work: initialData.work || "",
+        zodiac: initialData.zodiac,
+        poisonsOfChoice: initialData.poisonsOfChoice || { substances: undefined, frequency: undefined },
+        interests: initialData.interests || [],
+        personalityChoices: initialData.personalityChoices || personalityCategories.map((category) => ({
+          category,
+          choice: "optionA",
+        })),
+        dontShowMe: initialData.dontShowMe || [],
+        dealBreakers: initialData.dealBreakers || [],
+        userId: initialData.userId || "",
+      }),
+      dateOfBirth: initialData?.dateOfBirth?.toString() || "",
     },
     mode: "onChange",
-  });
-  // Initialize existing images and previews from initialData
+  });// Initialize existing images and previews from initialData
   useEffect(() => {
     if (initialData?.gallery && Array.isArray(initialData.gallery)) {
       const existingGallery = initialData.gallery.filter(
@@ -173,8 +216,12 @@ export function ProfileForm({
       );
       setExistingImages(existingGallery);
       setSelectedPreviews(existingGallery.map((img: ExistingImage) => img.url));
+
+      // Don't set the form gallery field with existing images as it expects File[]
+      // The gallery field will be populated with actual files when user uploads
     }
-  }, [initialData]);
+  }, [initialData, form]);
+
   // Calculate form completion progress
   const calculateProgress = () => {
     const values = form.getValues();
@@ -188,11 +235,12 @@ export function ProfileForm({
       "aboutMe",
       "aboutYou",
       "height",
+      "weight",
       "education",
       "work",
       "poisonsOfChoice",
       "interests",
-      "personalityChoice",
+      "personalityChoices",
     ];
 
     let filledFields = 0;
@@ -212,6 +260,15 @@ export function ProfileForm({
       ) {
         filledFields++;
       } else if (
+        field === "weight" &&
+        typeof value === "object" &&
+        value !== null &&
+        "value" in value &&
+        "unit" in value &&
+        value.value > 0
+      ) {
+        filledFields++;
+      } else if (
         field === "poisonsOfChoice" &&
         typeof value === "object" &&
         value !== null &&
@@ -227,9 +284,13 @@ export function ProfileForm({
         value.length > 0
       ) {
         filledFields++;
-      } else if (value && typeof value === "string" && value.trim() !== "") {
+      } else if (
+        field === "personalityChoices" &&
+        Array.isArray(value) &&
+        value.length === 15
+      ) {
         filledFields++;
-      } else if (value instanceof Date) {
+      } else if (value && typeof value === "string" && value.trim() !== "") {
         filledFields++;
       }
     });
@@ -238,11 +299,11 @@ export function ProfileForm({
     setFormProgress(progress);
     return progress;
   };
+
   // Update progress when form values change
   form.watch(() => {
     calculateProgress();
   });
-
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       const files = Array.from(e.target.files);
@@ -257,51 +318,43 @@ export function ProfileForm({
         const newPreviews = filesToAdd.map((file) => URL.createObjectURL(file));
         setSelectedPreviews((prev) => [...prev, ...newPreviews]);
 
-        // Set gallery to files for form validation
+        // Set the actual File objects for the form
         form.setValue("gallery", newFiles);
         form.trigger("gallery");
       }
     }
   };
-
   const removePhoto = (index: number) => {
     setDeletePhotoIndex(null);
 
-    // Check if it's an existing image or new file
     if (index < existingImages.length) {
-      // Removing existing image - add to delete list
       const imageToDelete = existingImages[index];
       setImagesToDelete((prev) => [...prev, imageToDelete.asset._ref]);
 
-      // Remove from existing images
       const updatedExistingImages = existingImages.filter(
         (_, i) => i !== index
       );
       setExistingImages(updatedExistingImages);
 
-      // Remove from previews
       const updatedPreviews = selectedPreviews.filter((_, i) => i !== index);
       setSelectedPreviews(updatedPreviews);
     } else {
-      // Removing new file
       const fileIndex = index - existingImages.length;
       const updatedFiles = selectedFiles.filter((_, i) => i !== fileIndex);
       setSelectedFiles(updatedFiles);
 
-      // Remove from previews
       const updatedPreviews = selectedPreviews.filter((_, i) => i !== index);
       setSelectedPreviews(updatedPreviews);
 
-      // Update form
+      // Update form with the remaining files
       form.setValue("gallery", updatedFiles);
       form.trigger("gallery");
     }
   };
-
   const handleSubmit = async (values: DatingProfileForm) => {
-    // Add images to delete and existing images data to the form data
     const submitData = {
       ...values,
+      gallery: selectedFiles, // Replace the gallery with the actual File array
       imagesToDelete,
       existingImages: existingImages.filter(
         (img) => !imagesToDelete.includes(img.asset._ref)
@@ -310,13 +363,15 @@ export function ProfileForm({
     onSubmit(submitData);
   };
 
+  console.log(form.formState.errors);
+
   return (
     <div className="min-h-screen bg-gray-50 py-4 px-4 sm:px-6 lg:px-8">
       <div className="max-w-2xl mx-auto">
         {/* Header */}
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Create Profile
+            {isEditing ? "Edit Profile" : "Create Profile"}
           </h1>
           <div className="flex items-center justify-center gap-3">
             <span className="text-sm text-gray-600">
@@ -392,13 +447,11 @@ export function ProfileForm({
                       <FormControl>
                         <DatePicker
                           value={
-                            field.value instanceof Date
-                              ? field.value
-                              : field.value
-                              ? new Date(field.value)
-                              : undefined
+                            field.value ? new Date(field.value) : undefined
                           }
-                          onChange={(date) => field.onChange(date)}
+                          onChange={(date) =>
+                            field.onChange(date?.toISOString().split("T")[0])
+                          }
                           placeholder="Select your date of birth"
                         />
                       </FormControl>
@@ -481,16 +534,13 @@ export function ProfileForm({
                   render={() => (
                     <FormItem>
                       <div className="space-y-4">
-                        {/* Photo Grid */}
                         {selectedPreviews.length > 0 && (
                           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                            {/* Main photo - larger */}
                             <div className="col-span-2 sm:col-span-2 relative aspect-[3/4] rounded-xl overflow-hidden border-2 border-pink-200 bg-gray-100">
                               <Image
                                 src={
                                   selectedPreviews[0] ||
-                                  "/placeholder.svg?height=400&width=300" ||
-                                  "/placeholder.svg"
+                                  "/placeholder.svg?height=400&width=300"
                                 }
                                 alt="Main photo"
                                 fill
@@ -510,7 +560,6 @@ export function ProfileForm({
                               </div>
                             </div>
 
-                            {/* Additional photos */}
                             {selectedPreviews.slice(1).map((photo, index) => {
                               const photoIndex = index + 1;
                               return (
@@ -521,8 +570,7 @@ export function ProfileForm({
                                   <Image
                                     src={
                                       photo ||
-                                      "/placeholder.svg?height=300&width=225" ||
-                                      "/placeholder.svg"
+                                      "/placeholder.svg?height=300&width=225"
                                     }
                                     alt={`Photo ${photoIndex + 1}`}
                                     fill
@@ -541,8 +589,8 @@ export function ProfileForm({
                               );
                             })}
                           </div>
-                        )}{" "}
-                        {/* Add Photo Button */}
+                        )}
+
                         {selectedPreviews.length < 6 && (
                           <div className="flex flex-col items-center justify-center">
                             {selectedPreviews.length === 0 ? (
@@ -654,7 +702,7 @@ export function ProfileForm({
                   Physical Attributes
                 </CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="space-y-4">
                 <FormField
                   control={form.control}
                   name="height"
@@ -699,6 +747,60 @@ export function ProfileForm({
                               className="h-12 border-gray-200 focus:border-pink-500 focus:ring-pink-500"
                             />
                           </FormControl>
+                        </div>
+                      </div>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="weight"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-sm font-medium text-gray-700">
+                        Weight
+                      </FormLabel>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <FormControl>
+                            <Input
+                              type="number"
+                              placeholder="Weight"
+                              min={50}
+                              max={500}
+                              value={field.value?.value || ""}
+                              onChange={(e) =>
+                                field.onChange({
+                                  ...field.value,
+                                  value: Number.parseInt(e.target.value) || 0,
+                                })
+                              }
+                              className="h-12 border-gray-200 focus:border-pink-500 focus:ring-pink-500"
+                            />
+                          </FormControl>
+                        </div>
+                        <div>
+                          <Select
+                            onValueChange={(value) =>
+                              field.onChange({
+                                ...field.value,
+                                unit: value,
+                              })
+                            }
+                            defaultValue={field.value?.unit}
+                          >
+                            <FormControl>
+                              <SelectTrigger className="h-12 border-gray-200 focus:border-pink-500 focus:ring-pink-500">
+                                <SelectValue placeholder="Unit" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="lbs">lbs</SelectItem>
+                              <SelectItem value="kg">kg</SelectItem>
+                            </SelectContent>
+                          </Select>
                         </div>
                       </div>
                       <FormMessage />
@@ -834,12 +936,12 @@ export function ProfileForm({
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="none">None</SelectItem>
-                          <SelectItem value="alcohol">Alcohol</SelectItem>
-                          <SelectItem value="cigarettes_weed">
-                            Cigarettes/Weed
+                          <SelectItem value="smoker">Smoker</SelectItem>
+                          <SelectItem value="drinker">Drinker</SelectItem>
+                          <SelectItem value="both">Both</SelectItem>
+                          <SelectItem value="other_stuff">
+                            Other stuff
                           </SelectItem>
-                          <SelectItem value="more_stuff">More stuff</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -909,83 +1011,58 @@ export function ProfileForm({
               </CardContent>
             </Card>
 
-            {/* Personality Choice */}
+            {/* Personality Choices */}
             <Card className="shadow-sm">
               <CardHeader className="pb-4">
                 <CardTitle className="text-lg font-semibold">
-                  Personality
+                  Personality Choices
                 </CardTitle>
+                <p className="text-sm text-gray-600">
+                  Choose your preference for each scenario
+                </p>
               </CardHeader>
-              <CardContent>
-                <FormField
-                  control={form.control}
-                  name="personalityChoice"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-sm font-medium text-gray-700">
-                        Choose your personality preference
-                      </FormLabel>
-                      <Select
-                        onValueChange={field.onChange}
-                        defaultValue={field.value}
-                      >
+              <CardContent className="space-y-6">
+                {personalityCategories.map((category, index) => (
+                  <FormField
+                    key={category}
+                    control={form.control}
+                    name={`personalityChoices.${index}.choice`}
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-sm font-medium text-gray-700">
+                          {category}
+                        </FormLabel>
                         <FormControl>
-                          <SelectTrigger className="h-12 border-gray-200 focus:border-pink-500 focus:ring-pink-500">
-                            <SelectValue placeholder="Select personality choice" />
-                          </SelectTrigger>
+                          <RadioGroup
+                            onValueChange={field.onChange}
+                            defaultValue={field.value}
+                            className="flex flex-col space-y-2"
+                          >
+                            <div className="flex items-center space-x-2">
+                              <RadioGroupItem
+                                value="optionA"
+                                id={`${index}-a`}
+                              />
+                              <Label htmlFor={`${index}-a`} className="text-sm">
+                                Option A
+                              </Label>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <RadioGroupItem
+                                value="optionB"
+                                id={`${index}-b`}
+                              />
+                              <Label htmlFor={`${index}-b`} className="text-sm">
+                                Option B
+                              </Label>
+                            </div>
+                          </RadioGroup>
                         </FormControl>
-                        <SelectContent>
-                          <SelectItem value="fat_vs_short">
-                            Fat vs Short
-                          </SelectItem>
-                          <SelectItem value="hates_pets_vs_loves_pets">
-                            Hates Pets vs Loves Pets
-                          </SelectItem>
-                          <SelectItem value="no_humor_vs_laughs_everything">
-                            No Humor vs Laughs at Everything
-                          </SelectItem>
-                          <SelectItem value="talks_self_vs_never_shares">
-                            Talks About Self vs Never Shares
-                          </SelectItem>
-                          <SelectItem value="average_loyal_vs_good_disloyal">
-                            Average & Loyal vs Good Looking & Disloyal
-                          </SelectItem>
-                          <SelectItem value="social_media_vs_no_presence">
-                            Social Media vs No Online Presence
-                          </SelectItem>
-                          <SelectItem value="stay_home_vs_never_home">
-                            Stay at Home vs Never Home
-                          </SelectItem>
-                          <SelectItem value="bad_taste_vs_judges_taste">
-                            Bad Taste vs Judges Your Taste
-                          </SelectItem>
-                          <SelectItem value="mommy_vs_daddy_issues">
-                            Mommy vs Daddy Issues
-                          </SelectItem>
-                          <SelectItem value="no_ambition_vs_workaholic">
-                            No Ambition vs Workaholic
-                          </SelectItem>
-                          <SelectItem value="conspiracy_vs_fake_news">
-                            Conspiracy Theorist vs Believes Fake News
-                          </SelectItem>
-                          <SelectItem value="know_all_vs_know_nothing">
-                            Know-it-all vs Knows Nothing
-                          </SelectItem>
-                          <SelectItem value="spends_much_vs_frugal">
-                            Spends Too Much vs Too Frugal
-                          </SelectItem>
-                          <SelectItem value="smart_poor_vs_dumb_rich">
-                            Smart & Poor vs Dumb & Rich
-                          </SelectItem>
-                          <SelectItem value="rich_unethical_vs_poor_ethical">
-                            Rich & Unethical vs Poor & Ethical
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                ))}
               </CardContent>
             </Card>
 
@@ -1092,18 +1169,6 @@ export function ProfileForm({
           </DialogContent>
         </Dialog>
       </div>
-    </div>
-  );
-}
-
-export default function App() {
-  const handleSubmit = (values: DatingProfileForm) => {
-    console.log("Form submitted:", values);
-  };
-
-  return (
-    <div className="min-h-screen">
-      <ProfileForm onSubmit={handleSubmit} isEditing />
     </div>
   );
 }

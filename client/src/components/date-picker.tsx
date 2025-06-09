@@ -63,7 +63,7 @@ export const DatePicker = ({
   const today = new Date();
   const [month, setMonth] = useState(today);
   const [isYearView, setIsYearView] = useState(false);
-  const startDate = new Date(1980, 6);
+  const startDate = new Date(1930, 6);
   const endDate = new Date(2030, 6);
 
   const years = eachYearOfInterval({

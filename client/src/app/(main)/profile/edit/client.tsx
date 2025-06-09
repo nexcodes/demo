@@ -14,7 +14,10 @@ export default function ClientEditProfilePage({ profile }: { profile: any }) {
 
   const { user } = useCurrentUser();
 
-  const [isPending, startTransition] = useTransition();  const handleSubmit = async (data: any) => {
+  const [isPending, startTransition] = useTransition();
+  const handleSubmit = async (data: any) => {
+    console.log({ data });
+
     startTransition(async () => {
       if (!user?.id) {
         console.error("User ID is required");
@@ -25,7 +28,19 @@ export default function ClientEditProfilePage({ profile }: { profile: any }) {
         const files = data.gallery || [];
         const imagesToDelete = data.imagesToDelete || [];
         const existingImages = data.existingImages || [];
-        
+
+        console.log("Form data received:", {
+          filesCount: files.length,
+          imagesToDeleteCount: imagesToDelete.length,
+          existingImagesCount: existingImages.length,
+          existingImages: existingImages.map((img: any) => ({
+            hasKey: !!img?._key,
+            hasAsset: !!img?.asset,
+            hasAssetRef: !!img?.asset?._ref,
+            assetRef: img?.asset?._ref,
+          })),
+        });
+
         // Delete images from Sanity if any
         if (imagesToDelete.length > 0) {
           await Promise.all(
@@ -38,26 +53,58 @@ export default function ClientEditProfilePage({ profile }: { profile: any }) {
             })
           );
         }
-        
+
         // Upload new files and get media references
         const uploadedImageReferences =
           files.length > 0 ? await uploadToSanity(files) : [];
 
         // Extract fields that shouldn't be sent to Sanity
-        const { id, documentId, gallery, imagesToDelete: _, existingImages: __, ...dataToUpdate } = data;
+        const {
+          id,
+          documentId,
+          gallery,
+          imagesToDelete: _,
+          existingImages: __,
+          ...dataToUpdate
+        } = data; // Combine existing photos with newly uploaded ones
+        // Filter out any invalid existing images (null refs, missing assets, etc.)
+        const validExistingImages = existingImages.filter(
+          (img: any) =>
+            img &&
+            img.asset &&
+            img.asset._ref &&
+            img.asset._ref !== "null" &&
+            img.asset._ref !== null &&
+            img.asset._ref !== undefined &&
+            img._key
+        );
 
-        // Combine existing photos with newly uploaded ones
         const finalGallery = [
-          ...existingImages.map((img: any) => ({
+          ...validExistingImages.map((img: any) => ({
             _type: "image",
             _key: img._key,
             asset: {
               _type: "reference",
-              _ref: img.asset._ref,
+              _ref: String(img.asset._ref),
             },
           })),
-          ...uploadedImageReferences
+          ...uploadedImageReferences,
         ];
+
+        console.log("Final gallery being sent to Sanity:", finalGallery);
+
+        // Validate that no gallery items have null references before sending to Sanity
+        const invalidGalleryItems = finalGallery.filter(
+          (item) =>
+            !item.asset || !item.asset._ref || item.asset._ref === "null"
+        );
+
+        if (invalidGalleryItems.length > 0) {
+          console.error("Found invalid gallery items:", invalidGalleryItems);
+          throw new Error(
+            "Invalid gallery items detected. Cannot update profile."
+          );
+        }
 
         // Update the profile in Sanity
         await client
@@ -114,11 +161,23 @@ export default function ClientEditProfilePage({ profile }: { profile: any }) {
       <ProfileForm
         initialData={{
           ...profile,
-          dateOfBirth: profile.dateOfBirth ? new Date(profile.dateOfBirth) : undefined,
-          gallery: profile.gallery || [],
+          dateOfBirth: profile.dateOfBirth
+            ? new Date(profile.dateOfBirth)
+            : undefined,
+          gallery: (profile.gallery || []).filter(
+            (img: any) =>
+              img &&
+              img.asset &&
+              img.asset._ref &&
+              img.asset._ref !== "null" &&
+              img.asset._ref !== null &&
+              img.asset._ref !== undefined &&
+              img._key
+          ),
         }}
         onSubmit={handleSubmit}
         isLoading={isPending}
+        isEditing
       />
     </div>
   );

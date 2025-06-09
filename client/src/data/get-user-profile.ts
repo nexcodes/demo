@@ -1,9 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { currentUser } from "@/lib/auth";
 import { client, urlFor } from "@/lib/sanity";
-import {
-  type DatingProfile
-} from "@/schemas/dating-profile.schema";
+import { type Profile as DatingProfile } from "@/schemas/dating-profile.schema";
 
 // Extended type to include Sanity-specific fields
 export type SanityDatingProfile = DatingProfile & {
@@ -33,9 +31,7 @@ export const getUserProfile =
 
       if (!user) {
         return null;
-      }
-
-      // GROQ query to fetch the dating profile by userId
+      }      // GROQ query to fetch the dating profile by userId
       const query = `*[_type == "profile" && userId == $userId][0]{
       _id,
       _createdAt,
@@ -57,12 +53,13 @@ export const getUserProfile =
       aboutMe,
       aboutYou,
       height,
+      weight,
       education,
       work,
       zodiac,
       poisonsOfChoice,
       interests,
-      personalityChoice,
+      personalityChoices,
       dontShowMe,
       dealBreakers,
       userId
@@ -122,12 +119,13 @@ export const getProfileByUserId = async (
       aboutMe,
       aboutYou,
       height,
+      weight,
       education,
       work,
       zodiac,
       poisonsOfChoice,
       interests,
-      personalityChoice,
+      personalityChoices,
       dontShowMe,
       dealBreakers,
       userId
@@ -211,12 +209,13 @@ export const getProfiles = async (
       aboutMe,
       aboutYou,
       height,
+      weight,
       education,
       work,
       zodiac,
       poisonsOfChoice,
       interests,
-      personalityChoice,
+      personalityChoices,
       dontShowMe,
       dealBreakers,
       userId
