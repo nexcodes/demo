@@ -54,7 +54,9 @@ export default function CreateProfilePage() {
 
       try {
         // Upload files and get media references
-        const uploadedImageReferences = await uploadToSanity(data.gallery);
+        const uploadedImageReferences = await uploadToSanity(
+          data.gallery || []
+        );
 
         // Create profile with media references
         await client.create({
