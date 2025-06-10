@@ -68,16 +68,7 @@ export default function ClientEditProfilePage({ profile }: { profile: any }) {
           ...dataToUpdate
         } = data; // Combine existing photos with newly uploaded ones
         // Filter out any invalid existing images (null refs, missing assets, etc.)
-        const validExistingImages = existingImages.filter(
-          (img: any) =>
-            img &&
-            img.asset &&
-            img.asset._ref &&
-            img.asset._ref !== "null" &&
-            img.asset._ref !== null &&
-            img.asset._ref !== undefined &&
-            img._key
-        );
+        const validExistingImages = existingImages;
 
         const finalGallery = [
           ...validExistingImages.map((img: any) => ({
@@ -164,16 +155,7 @@ export default function ClientEditProfilePage({ profile }: { profile: any }) {
           dateOfBirth: profile.dateOfBirth
             ? new Date(profile.dateOfBirth)
             : undefined,
-          gallery: (profile.gallery || []).filter(
-            (img: any) =>
-              img &&
-              img.asset &&
-              img.asset._ref &&
-              img.asset._ref !== "null" &&
-              img.asset._ref !== null &&
-              img.asset._ref !== undefined &&
-              img._key
-          ),
+          gallery: profile.gallery || [],
         }}
         onSubmit={handleSubmit}
         isLoading={isPending}

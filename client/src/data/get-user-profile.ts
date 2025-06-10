@@ -31,7 +31,7 @@ export const getUserProfile =
 
       if (!user) {
         return null;
-      }      // GROQ query to fetch the dating profile by userId
+      } // GROQ query to fetch the dating profile by userId
       const query = `*[_type == "profile" && userId == $userId][0]{
       _id,
       _createdAt,
@@ -41,15 +41,7 @@ export const getUserProfile =
       dateOfBirth,
       postcode,
       datingPurpose,
-      gallery[]{
-        _key,
-        alt,
-        asset->{
-          _id,
-          _ref,
-          url
-        }
-      },
+      gallery[],
       aboutMe,
       aboutYou,
       height,
@@ -107,15 +99,7 @@ export const getProfileByUserId = async (
       dateOfBirth,
       postcode,
       datingPurpose,
-      gallery[]{
-        _key,
-        alt,
-        asset->{
-          _id,
-          _ref,
-          url
-        }
-      },
+      gallery[],
       aboutMe,
       aboutYou,
       height,
@@ -136,6 +120,8 @@ export const getProfileByUserId = async (
     if (!profile) {
       return null;
     }
+
+    console.log({ g: profile.gallery });
 
     // Format the gallery images with URLs
     const formattedGallery =
@@ -197,15 +183,7 @@ export const getProfiles = async (
       dateOfBirth,
       postcode,
       datingPurpose,
-      gallery[]{
-        _key,
-        alt,
-        asset->{
-          _id,
-          _ref,
-          url
-        }
-      },
+      gallery[],
       aboutMe,
       aboutYou,
       height,

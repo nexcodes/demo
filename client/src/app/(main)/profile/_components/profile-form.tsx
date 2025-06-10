@@ -146,6 +146,8 @@ export function ProfileForm({
   isLoading = false,
   isEditing,
 }: ProfileFormProps) {
+  console.log({ initialData });
+
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [selectedPreviews, setSelectedPreviews] = useState<string[]>([]);
   const [existingImages, setExistingImages] = useState<
@@ -158,7 +160,8 @@ export function ProfileForm({
   const [imagesToDelete, setImagesToDelete] = useState<string[]>([]);
   const [deletePhotoIndex, setDeletePhotoIndex] = useState<number | null>(null);
   const [formProgress, setFormProgress] = useState(0);
-  const fileInputRef = useRef<HTMLInputElement>(null);  const form = useForm<DatingProfileForm>({
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const form = useForm<DatingProfileForm>({
     resolver: zodResolver(datingProfileFormSchema),
     defaultValues: {
       firstName: "",
@@ -195,12 +198,17 @@ export function ProfileForm({
         education: initialData.education,
         work: initialData.work || "",
         zodiac: initialData.zodiac,
-        poisonsOfChoice: initialData.poisonsOfChoice || { substances: undefined, frequency: undefined },
+        poisonsOfChoice: initialData.poisonsOfChoice || {
+          substances: undefined,
+          frequency: undefined,
+        },
         interests: initialData.interests || [],
-        personalityChoices: initialData.personalityChoices || personalityCategories.map((category) => ({
-          category,
-          choice: "optionA",
-        })),
+        personalityChoices:
+          initialData.personalityChoices ||
+          personalityCategories.map((category) => ({
+            category,
+            choice: "optionA",
+          })),
         dontShowMe: initialData.dontShowMe || [],
         dealBreakers: initialData.dealBreakers || [],
         userId: initialData.userId || "",
@@ -208,7 +216,7 @@ export function ProfileForm({
       dateOfBirth: initialData?.dateOfBirth?.toString() || "",
     },
     mode: "onChange",
-  });// Initialize existing images and previews from initialData
+  }); // Initialize existing images and previews from initialData
   useEffect(() => {
     if (initialData?.gallery && Array.isArray(initialData.gallery)) {
       const existingGallery = initialData.gallery.filter(
